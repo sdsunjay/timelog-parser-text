@@ -1,8 +1,11 @@
 import os
 import datetime
 from collections import defaultdict
+import argparse
 
 from timedata import TimeData
+
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S %z"
 
 def read_file(file_path):
     """Read the content of the file and return lines."""
@@ -19,16 +22,16 @@ def get_timestamp(line):
     offset = parts[4]
     return f"{parts[2]} {parts[3]} {offset}"
 
-def parse_timestamps(lines, existing_time_data):
+def parse_timestamps(lines):
     """Parse timestamps from the lines of the file."""
-    timestamps = []
+    timestamps = set()
     for i in range(0, len(lines), 2):
         if i + 1 < len(lines) and "start time" in lines[i] and "end time" in lines[i+1]:
             start_time_str = get_timestamp(lines[i])
             end_time_str = get_timestamp(lines[i+1])
-            time_data = TimeData(start_time_string=start_time_str, end_time_string=end_time_str)
-            if time_data not in existing_time_data and time_data.delta_minutes is not None:
-                timestamps.append(time_data)
+            time_data = TimeData(start_time_string=start_time_str, end_time_string=end_time_str, date_format=DATE_FORMAT)
+            if time_data.delta_minutes is not None:
+                timestamps.add(time_data)
     return timestamps
 
 def group_by_week(time_data_list):
@@ -66,7 +69,7 @@ def save_results(output_path, time_data_list, weekly_hours):
         week_end = get_week_end(time_data.end_time_utc)
         weekly_results[week_end].append(f"Start time: {time_data.start_time_string}, End time: {time_data.end_time_string}, Minutes:{time_data.delta_minutes}\n")
 
-    with open(output_path, 'a') as file:
+    with open(output_path, 'w') as file:
         for week_end in sorted(weekly_results):
             file.writelines(weekly_results[week_end])
             if week_end in weekly_hours:
@@ -84,7 +87,7 @@ def read_existing_entries_as_timedata(output_path):
             try:
                 start_time_string = line.split(', ')[0].split(': ', 1)[1]
                 end_time_string = line.split(', ')[1].split(': ', 1)[1]
-                existing_time_data.add(TimeData(start_time_string=start_time_string, end_time_string=end_time_string))
+                existing_time_data.add(TimeData(start_time_string=start_time_string, end_time_string=end_time_string, date_format=DATE_FORMAT))
             except Exception as e:
                 print(f"{e}: Unable to parse {line}")
 
@@ -92,24 +95,29 @@ def read_existing_entries_as_timedata(output_path):
 
 def calculate_weekly_hours(timelog_file_path, output_path):
     """Main function to calculate weekly hours from the time log file."""
-    existing_time_data = read_existing_entries_as_timedata(output_path)
-    lines = read_file(timelog_file_path)
-    time_data_list = parse_timestamps(lines, existing_time_data)
-    if time_data_list:
-        weekly_minutes = group_by_week(time_data_list)
+    existing_time_set = read_existing_entries_as_timedata(output_path)
+    timelog_lines = read_file(timelog_file_path)
+    time_data_set = parse_timestamps(timelog_lines)
+    combined_time_data_set = time_data_set.union(existing_time_set)
+    combined_time_data_list = sorted(list(combined_time_data_set))
+
+    if combined_time_data_set:
+        weekly_minutes = group_by_week(combined_time_data_list)
         weekly_hours = convert_minutes_to_hours(weekly_minutes)
-        save_results(output_path, time_data_list, weekly_hours)
+        save_results(output_path, combined_time_data_list, weekly_hours)
     else:
         print(f"There is nothing in {timelog_file_path} that is not already in {output_path}.")
 
+
+
 def main():
-    # Get home path and construct file path
-    home_path = os.path.expanduser("~")
-    timelog_file_path = f'{home_path}/Documents/timelog.txt'
-    output_path = f'./weekly_hours.txt'
+    parser = argparse.ArgumentParser(description="Process time log file to calculate weekly hours.")
+    parser.add_argument('--input', type=str, help='Path to the input time log file', default=os.path.expanduser('~/Documents/timelog.txt'))
+    parser.add_argument('--output', type=str, help='Path to the output file', default='./weekly_hours.txt')
+    args = parser.parse_args()
 
     # Calculate weekly hours
-    calculate_weekly_hours(timelog_file_path, output_path)
+    calculate_weekly_hours(args.input, args.output)
 
 if __name__ == '__main__':
     main()
