@@ -34,17 +34,24 @@ def parse_timestamps(lines):
                 timestamps.add(time_data)
     return timestamps
 
+def print_current_hours(current_week_minutes):
+    """Convert the current week's minutes to hours and print the result."""
+    current_week_hours = round(current_week_minutes / 60, 2)
+
+    print(f"Current week: {current_week_hours} hours")
+
 def group_by_week(time_data_list):
-    """Group the minutes by the week they belong to and sum them."""
+    """Group minutes by their corresponding week ending date and sum them."""
     weekly_minutes = defaultdict(float)
-    cur_week_end = current_week_end()
+    current_week_end = current_week_end()
 
     for time_data in time_data_list:
         week_end = get_week_end(time_data.end_time_utc)
         weekly_minutes[week_end] += time_data.delta_minutes
 
     # Remove the last week for the weekly hours
-    weekly_minutes.pop(cur_week_end, None)
+    print_current_hours(weekly_minutes[current_week_end])
+    weekly_minutes.pop(current_week_end, None)
     return weekly_minutes
 
 def get_week_end(time_utc):
