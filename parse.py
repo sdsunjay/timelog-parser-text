@@ -40,10 +40,20 @@ def print_current_hours(current_week_minutes):
 
     print(f"Current week: {current_week_hours} hours")
 
+def get_week_end(time_utc):
+    """Calculate the end of the week (Sunday) for the given input time."""
+    week_end = time_utc + datetime.timedelta(days=(6 - time_utc.weekday()))
+    return week_end.replace(hour=23, minute=59, second=59, microsecond=0, tzinfo=datetime.timezone.utc)
+
+def get_current_week_end():
+    """Calculate the end of the week (Sunday) for the current time."""
+    current_time_utc = datetime.datetime.now(datetime.timezone.utc)
+    return get_week_end(current_time_utc)
+
 def group_by_week(time_data_list):
     """Group minutes by their corresponding week ending date and sum them."""
     weekly_minutes = defaultdict(float)
-    current_week_end = current_week_end()
+    current_week_end = get_current_week_end()
 
     for time_data in time_data_list:
         week_end = get_week_end(time_data.end_time_utc)
@@ -53,16 +63,6 @@ def group_by_week(time_data_list):
     print_current_hours(weekly_minutes[current_week_end])
     weekly_minutes.pop(current_week_end, None)
     return weekly_minutes
-
-def get_week_end(time_utc):
-    """Calculate the end of the week (Sunday) for the given input time."""
-    week_end = time_utc + datetime.timedelta(days=(6 - time_utc.weekday()))
-    return week_end.replace(hour=23, minute=59, second=59, microsecond=0, tzinfo=datetime.timezone.utc)
-
-def current_week_end():
-    """Calculate the end of the week (Sunday) for the current time."""
-    current_time_utc = datetime.datetime.now(datetime.timezone.utc)
-    return get_week_end(current_time_utc)
 
 def convert_minutes_to_hours(weekly_minutes):
     """Convert minutes to hours for each week."""
